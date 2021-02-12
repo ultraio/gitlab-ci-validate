@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"github.com/ghodss/yaml"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -12,6 +11,8 @@ import (
 	"os"
 	"runtime"
 	"strings"
+
+	"github.com/ghodss/yaml"
 )
 
 type lintResponse struct {
@@ -38,7 +39,7 @@ func init() {
 }
 
 // Validate the given file
-func ValidateFile(host string, path string) (Validation, []error) {
+func ValidateFile(host string, token string, path string) (Validation, []error) {
 	content, err := ioutil.ReadFile(path)
 	if err != nil {
 		return HARD_FAIL, []error{err}
@@ -59,6 +60,10 @@ func ValidateFile(host string, path string) (Validation, []error) {
 		return SOFT_FAIL, []error{err}
 	}
 	request.Header.Set("User-Agent", userAgent)
+	if token != "" {
+		request.Header.Set("Private-Token", token)
+	}
+
 	response, err := http.DefaultClient.Do(request)
 
 	if err != nil {
@@ -100,6 +105,7 @@ func main() {
 	}
 
 	host := flag.String("host", getEnv("GITLAB_HOST", "https://gitlab.com"), "GitLab instance used to validate the config files")
+	token := flag.String("token", getEnv("GITLAB_TOKEN", ""), "GitLab token used to access on authenticate resource")
 	flag.Parse()
 
 	l := log.New(os.Stderr, "", 0)
@@ -110,7 +116,7 @@ func main() {
 
 	var result Validation
 	for _, source := range flag.Args() {
-		validation, errs := ValidateFile(*host, source)
+		validation, errs := ValidateFile(*host, *token, source)
 		if validation > result {
 			result = validation
 		}
